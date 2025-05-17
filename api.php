@@ -27,12 +27,23 @@ $db_pass = getenv('DB_PASS') ?: '';
 function connectDB() {
     global $db_host, $db_name, $db_user, $db_pass;
     
-    try {
-        $conn = new PDO("mysql:host=$db_host;dbname=$db_name", $db_user, $db_pass);
-        $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        return $conn;
-    } catch(PDOException $e) {
-        sendError("Database connection failed: " . $e->getMessage(), 500);
+    $maxRetries = 5;
+    $retryCount = 0;
+    $retryDelay = 2; // seconds
+    
+    while ($retryCount < $maxRetries) {
+        try {
+            $conn = new PDO("mysql:host=$db_host;dbname=$db_name", $db_user, $db_pass);
+            $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            return $conn;
+        } catch(PDOException $e) {
+            $retryCount++;
+            if ($retryCount >= $maxRetries) {
+                sendError("Database connection failed after $maxRetries attempts: " . $e->getMessage(), 500);
+            }
+            error_log("Database connection attempt $retryCount failed: " . $e->getMessage());
+            sleep($retryDelay);
+        }
     }
 }
 
